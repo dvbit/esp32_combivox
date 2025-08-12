@@ -1,0 +1,137 @@
+esphome:
+  name: combivox
+  includes:
+    - custom_components/usb_reader/usb_reader.h
+  on_boot:
+    priority: 600
+    then:
+      - logger.log: "Sistema avviato: avvio polling centrale via USB OTG"
+
+esp32:
+  board: lolin_s3
+  framework:
+    type: esp-idf
+
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret esp_api
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+usb_host:
+  enable_hubs: false
+
+usb_uart:
+  id: usb_uart_bus
+  type: cdc_acm
+  vid: 0 # 0x04D8
+  pid: 0 # 0x000A
+  channels:
+    - id: usb_channel
+      debug: true
+      baud_rate: 9600
+      data_bits: 8
+      parity: NONE
+      stop_bits: 1
+
+globals:
+  - id: connection_status
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: usb_last_seen
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+  - id: last_zones
+    type: std::string
+    restore_value: no
+  - id: last_insert
+    type: std::string
+    restore_value: no
+
+text_sensor:
+  - platform: template
+    name: "Stato Zone"
+    id: stato_zone
+  - platform: template
+    name: "Stato Inserimento"
+    id: stato_inserimento
+
+# 🔹 Lampeggio LED in base allo stato
+interval:
+  - interval: 125ms
+    then:
+      - lambda: |-
+          static bool led_on = false;
+          led_on = !led_on;
+
+          // Timeout USB → torna a Wi-Fi dopo 2000ms di inattività
+          if (millis() - id(usb_last_seen) > 2000) {
+            id(connection_status) = 0;
+          }
+
+          if (!led_on) {
+            id(rgb_led).turn_off();
+            return;
+          }
+
+          int st = id(connection_status);
+          if (st == 0) { 
+            id(rgb_led).turn_on();
+            id(rgb_led).set_rgb(0.0, 0.0, 1.0); // Blu = solo Wi-Fi
+          } else if (st == 1) { 
+            id(rgb_led).turn_on();
+            id(rgb_led).set_rgb(1.0, 1.0, 0.0); // Giallo = USB collegato
+          } else if (st == 2) { 
+            id(rgb_led).turn_on();
+            id(rgb_led).set_rgb(0.0, 1.0, 0.0); // Verde = dati USB ricevuti
+            id(connection_status) = 1; // torna idle dopo un ciclo
+          }
+# 🔹 Polling stato zone ogni 1s
+  - interval: 1s
+    then:
+      - lambda: |-
+          const char cmd1[] = ":010000500601A8\r\n";
+          id(usb_channel).write_str(cmd1);
+          ESP_LOGI("polling", "Inviato comando stato zone: %s", cmd1);
+# 🔹 Polling stato inserimento sfalsato di 500ms
+  - interval: 1s
+    then:
+      - delay: 500ms
+      - lambda: |-
+          const char cmd2[] = ":010000500602A7\r\n";
+          id(usb_channel).write_str(cmd2);
+          ESP_LOGI("polling", "Inviato comando stato inserimento: %s", cmd2);
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: rgb_led
+    chipset: WS2812
+    pin: GPIO38
+    num_leds: 1
+    rgb_order: GRB
+    name: "LED RGB LOLIN S3"
+
+external_components:
+  - source: github://marcob79/esp32_combivox@dev
+    path: custom_components/usb_reader
+
+usb_reader:
+  usb_channel: usb_uart_bus  # id UART configurato sopra
+  status_var: connection_status
+  last_seen: usb_last_seen
+  zones_var: last_zones
+  insert_var: last_insert
+  zones_sensor: stato_zone
+  insert_sensor: stato_inserimento
