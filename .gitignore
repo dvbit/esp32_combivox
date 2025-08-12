@@ -1,0 +1,19 @@
+# Ignore build and temporary files
+build/
+*.pio/
+*.log
+*.elf
+*.bin
+*.hex
+*.map
+*.exe
+
+# Ignore editor/project files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Ignore system files
+*.pyc
+__pycache__/
