@@ -19,10 +19,10 @@ CONF_INSERT_SENSOR = "insert_sensor"
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(USBReader),
     cv.Required(CONF_USB_CHANNEL): cv.use_id(usb_uart.USBUartComponent),
-    cv.Required(CONF_STATUS_VAR): cv.use_id(globals.GlobalVariable),
-    cv.Required(CONF_LAST_SEEN): cv.use_id(globals.GlobalVariable),
-    cv.Required(CONF_ZONES_VAR): cv.use_id(globals.GlobalVariable),
-    cv.Required(CONF_INSERT_VAR): cv.use_id(globals.GlobalVariable),
+    cv.Required(CONF_STATUS_VAR): cv.use_id(globals.GlobalsComponent),
+    cv.Required(CONF_LAST_SEEN): cv.use_id(globals.GlobalsComponent),
+    cv.Required(CONF_ZONES_VAR): cv.use_id(globals.GlobalsComponent),
+    cv.Required(CONF_INSERT_VAR): cv.use_id(globals.GlobalsComponent),
     cv.Required(CONF_ZONES_SENSOR): cv.use_id(text_sensor.TextSensor),
     cv.Required(CONF_INSERT_SENSOR): cv.use_id(text_sensor.TextSensor),
 }).extend(cv.COMPONENT_SCHEMA)
