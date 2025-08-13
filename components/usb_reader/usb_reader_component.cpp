@@ -1,47 +1,40 @@
-#include "esphome.h"
-#include "usb_reader.h"
-#include "esphome/components/uart/uart_component.h"
+#include "esphome/core/schema.h"
 #include "esphome/core/log.h"
-#include "esphome/core/component.h"
+#include "usb_reader.h"
 
 namespace esphome {
 namespace usb_reader {
 
-static const char *TAG = "usb_reader";
+using namespace esphome::schema;
 
-// USBReaderComponent estende USBReader con setup
-class USBReaderComponent : public USBReader {
+static const auto USB_READER_SCHEMA = inherit_component_schema()
+    .required("usb_channel", id_reference<usb_uart::USBUartComponent>())
+    .required("status_var", id_reference<globals::GlobalsComponent<int>>())
+    .optional("last_seen", id_reference<globals::GlobalsComponent<int>>())
+    .optional("zones_var", id_reference<globals::GlobalsComponent<int>>())
+    .optional("insert_var", id_reference<globals::GlobalsComponent<int>>());
+
+class USBReaderFactory : public ComponentFactory {
  public:
-  void setup() override {
-    ESP_LOGCONFIG(TAG, "Setting up USBReader component");
+  USBReaderFactory() : ComponentFactory("usb_reader", USB_READER_SCHEMA) {}
+
+  ComponentPtr create(const yaml::YamlNode &config) override {
+    auto comp = make_unique<USBReader>();
+    comp->set_usb_channel(config.require_id<usb_uart::USBUartComponent>("usb_channel"));
+    comp->set_status_var(config.require_id<globals::GlobalsComponent<int>>("status_var"));
+
+    if (config.has("last_seen"))
+      comp->set_last_seen_var(config.require_id<globals::GlobalsComponent<int>>("last_seen"));
+    if (config.has("zones_var"))
+      comp->set_zones_var(config.require_id<globals::GlobalsComponent<int>>("zones_var"));
+    if (config.has("insert_var"))
+      comp->set_insert_var(config.require_id<globals::GlobalsComponent<int>>("insert_var"));
+
+    return comp;
   }
 };
 
-// CONFIG_SCHEMA definisce i campi YAML accettati
-static const auto USB_READER_SCHEMA = esphome::component_schema()
-    .add_required<uart::UARTComponent *>("usb_channel")
-    .add_required<int *>("status_var")
-    .add_required<unsigned long *>("last_seen")
-    .add_required<std::string *>("zones_var")
-    .add_required<std::string *>("insert_var")
-    .add_required<text_sensor::TextSensor *>("zones_sensor")
-    .add_required<text_sensor::TextSensor *>("insert_sensor");
-
-// Funzione che ESPHome chiama per registrare il componente dal YAML
-void register_usb_reader(const std::shared_ptr<esphome::yaml::YamlNode> &node,
-                         ComponentRegistry &registry) {
-  auto comp = std::make_shared<USBReaderComponent>();
-
-  comp->usb_channel = registry.get_component<uart::UARTComponent>(node->get("usb_channel")->as<std::string>());
-  comp->status_var = registry.get_global<int>(node->get("status_var")->as<std::string>());
-  comp->last_seen = registry.get_global<unsigned long>(node->get("last_seen")->as<std::string>());
-  comp->zones_var = registry.get_global<std::string>(node->get("zones_var")->as<std::string>());
-  comp->insert_var = registry.get_global<std::string>(node->get("insert_var")->as<std::string>());
-  comp->zones_sensor = registry.get_component<text_sensor::TextSensor>(node->get("zones_sensor")->as<std::string>());
-  comp->insert_sensor = registry.get_component<text_sensor::TextSensor>(node->get("insert_sensor")->as<std::string>());
-
-  registry.add_component(comp);
-}
+static USBReaderFactory factory;
 
 }  // namespace usb_reader
 }  // namespace esphome
