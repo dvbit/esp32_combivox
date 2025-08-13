@@ -14,32 +14,34 @@ void USBReader::loop() {
   if (this->usb_channel_ == nullptr)
     return;
 
-  while (this->usb_channel_->available()) {
-    uint8_t c;
-    if (this->usb_channel_->read_byte(&c)) {
-      if (c == '\n') {
-        ESP_LOGD(TAG, "Received line: %s", this->buffer_.c_str());
-        // Parsing esempio: "Z:3,I:1"
-        size_t z_pos = this->buffer_.find("Z:");
-        size_t i_pos = this->buffer_.find("I:");
+  while (true) {
+    int c = this->usb_channel_->read();
+    if (c < 0)  // nessun dato disponibile
+      break;
 
-        if (z_pos != std::string::npos && this->zones_sensor_ != nullptr) {
-          int z_val = atoi(this->buffer_.substr(z_pos + 2).c_str());
-          this->zones_sensor_->publish_state(z_val);
-        }
+    if (c == '\n') {
+      ESP_LOGD(TAG, "Received line: %s", this->buffer_.c_str());
+      // Parsing esempio: "Z:3,I:1"
+      size_t z_pos = this->buffer_.find("Z:");
+      size_t i_pos = this->buffer_.find("I:");
 
-        if (i_pos != std::string::npos && this->insert_sensor_ != nullptr) {
-          int i_val = atoi(this->buffer_.substr(i_pos + 2).c_str());
-          this->insert_sensor_->publish_state(i_val);
-        }
-
-        this->buffer_.clear();
-      } else {
-        this->buffer_ += static_cast<char>(c);
+      if (z_pos != std::string::npos && this->zones_sensor_ != nullptr) {
+        int z_val = atoi(this->buffer_.substr(z_pos + 2).c_str());
+        this->zones_sensor_->publish_state(z_val);
       }
+
+      if (i_pos != std::string::npos && this->insert_sensor_ != nullptr) {
+        int i_val = atoi(this->buffer_.substr(i_pos + 2).c_str());
+        this->insert_sensor_->publish_state(i_val);
+      }
+
+      this->buffer_.clear();
+    } else {
+      this->buffer_ += static_cast<char>(c);
     }
   }
 }
+
 
 }  // namespace usb_reader
 }  // namespace esphome

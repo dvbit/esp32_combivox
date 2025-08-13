@@ -132,7 +132,7 @@ external_components:
       url: https://github.com/marcob79/esp32_combivox
       ref: dev
 
-sb_reader:
+usb_reader:
   usb_channel: usb_uart_bus
   zones_sensor: stato_zone
   insert_sensor: stato_inserimento

@@ -10,6 +10,7 @@ namespace usb_reader {
 class USBReader : public Component {
  public:
   void set_usb_channel(usb_uart::USBUartComponent *channel) { this->usb_channel_ = channel; }
+
   void set_zones_sensor(sensor::Sensor *s) { this->zones_sensor_ = s; }
   void set_insert_sensor(sensor::Sensor *s) { this->insert_sensor_ = s; }
 
