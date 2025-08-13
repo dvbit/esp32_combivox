@@ -20,7 +20,7 @@ class USBReader : public Component {
   void loop() override;
   void parse_line(const std::string &line);
 
-  void set_usb_channel(usb_uart::USBUartComponent *ch) { usb_channel = ch; }
+  void set_usb_channel(uart::UARTComponent *chan) { usb_channel = chan; }
   void set_status_var(int *var) { status_var = var; }
   void set_last_seen(unsigned long *var) { last_seen = var; }
   void set_zones_var(std::string *var) { zones_var = var; }

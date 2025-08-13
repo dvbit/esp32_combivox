@@ -1,37 +1,53 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import usb_uart, text_sensor
-import esphome
+from esphome.components import usb_uart, text_sensor, globals
+from esphome.const import CONF_ID
 
-DEPENDENCIES = ["usb_uart", "text_sensor"]
+DEPENDENCIES = ["usb_uart", "text_sensor", "globals"]
 
 usb_reader_ns = cg.esphome_ns.namespace("usb_reader")
 USBReader = usb_reader_ns.class_("USBReader", cg.Component)
 
+CONF_USB_CHANNEL = "usb_channel"
+CONF_STATUS_VAR = "status_var"
+CONF_LAST_SEEN = "last_seen"
+CONF_ZONES_VAR = "zones_var"
+CONF_INSERT_VAR = "insert_var"
+CONF_ZONES_SENSOR = "zones_sensor"
+CONF_INSERT_SENSOR = "insert_sensor"
+
 CONFIG_SCHEMA = cv.Schema({
-    cv.Required("usb_channel"): cv.use_id(usb_uart.USBUartComponent),
-    cv.Required("status_var"): cv.id(),
-    cv.Required("last_seen"): cv.id(),
-    cv.Required("zones_var"): cv.id(),
-    cv.Required("insert_var"): cv.id(),
-    cv.Required("zones_sensor"): cv.use_id(text_sensor.TextSensor),
-    cv.Required("insert_sensor"): cv.use_id(text_sensor.TextSensor),
+    cv.GenerateID(): cv.declare_id(USBReader),
+    cv.Required(CONF_USB_CHANNEL): cv.use_id(usb_uart.USBUartComponent),
+    cv.Required(CONF_STATUS_VAR): cv.use_id(globals.GlobalVariable),
+    cv.Required(CONF_LAST_SEEN): cv.use_id(globals.GlobalVariable),
+    cv.Required(CONF_ZONES_VAR): cv.use_id(globals.GlobalVariable),
+    cv.Required(CONF_INSERT_VAR): cv.use_id(globals.GlobalVariable),
+    cv.Required(CONF_ZONES_SENSOR): cv.use_id(text_sensor.TextSensor),
+    cv.Required(CONF_INSERT_SENSOR): cv.use_id(text_sensor.TextSensor),
 }).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
-    var = cg.new_Pvariable(config["id"])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    usb_ch = await cg.get_variable(config["usb_channel"])
-    cg.add(var.set_usb_channel(usb_ch))
+    usb_comp = await cg.get_variable(config[CONF_USB_CHANNEL])
+    cg.add(var.set_usb_channel(usb_comp))
 
-    cg.add(var.set_status_var(config["status_var"]))
-    cg.add(var.set_last_seen(config["last_seen"]))
-    cg.add(var.set_zones_var(config["zones_var"]))
-    cg.add(var.set_insert_var(config["insert_var"]))
+    status_var = await cg.get_variable(config[CONF_STATUS_VAR])
+    cg.add(var.set_status_var(status_var))
 
-    zones_sens = await cg.get_variable(config["zones_sensor"])
-    cg.add(var.set_zones_sensor(zones_sens))
+    last_seen = await cg.get_variable(config[CONF_LAST_SEEN])
+    cg.add(var.set_last_seen(last_seen))
 
-    insert_sens = await cg.get_variable(config["insert_sensor"])
-    cg.add(var.set_insert_sensor(insert_sens))
+    zones_var = await cg.get_variable(config[CONF_ZONES_VAR])
+    cg.add(var.set_zones_var(zones_var))
+
+    insert_var = await cg.get_variable(config[CONF_INSERT_VAR])
+    cg.add(var.set_insert_var(insert_var))
+
+    zones_sensor_var = await cg.get_variable(config[CONF_ZONES_SENSOR])
+    cg.add(var.set_zones_sensor(zones_sensor_var))
+
+    insert_sensor_var = await cg.get_variable(config[CONF_INSERT_SENSOR])
+    cg.add(var.set_insert_sensor(insert_sensor_var))

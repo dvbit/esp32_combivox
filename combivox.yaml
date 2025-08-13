@@ -49,15 +49,17 @@ globals:
     restore_value: no
     initial_value: '0'
   - id: usb_last_seen
-    type: unsigned long
+    type: int
     restore_value: no
     initial_value: '0'
   - id: last_zones
     type: std::string
     restore_value: no
+    initial_value: ""
   - id: last_insert
     type: std::string
     restore_value: no
+    initial_value: ""
 
 text_sensor:
   - platform: template
