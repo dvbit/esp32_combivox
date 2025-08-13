@@ -61,13 +61,14 @@ globals:
     restore_value: no
     initial_value: ""
 
-text_sensor:
+sensor:
   - platform: template
-    name: "Stato Zone"
     id: stato_zone
+    name: "Stato Zone"
+
   - platform: template
-    name: "Stato Inserimento"
     id: stato_inserimento
+    name: "Stato Inserimento"
 
 # 🔹 Lampeggio LED in base allo stato
 interval:
@@ -131,11 +132,7 @@ external_components:
       url: https://github.com/marcob79/esp32_combivox
       ref: dev
 
-usb_reader:
+sb_reader:
   usb_channel: usb_uart_bus
-  status_var: connection_status
-  last_seen: usb_last_seen
-  zones_var: last_zones
-  insert_var: last_insert
   zones_sensor: stato_zone
   insert_sensor: stato_inserimento

@@ -1,13 +1,9 @@
-import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import usb_uart
+import esphome.codegen as cg
 from esphome.const import CONF_ID
+from esphome.components import usb_uart, sensor
 
 CONF_USB_CHANNEL = "usb_channel"
-CONF_STATUS_VAR = "status_var"
-CONF_LAST_SEEN = "last_seen"
-CONF_ZONES_VAR = "zones_var"
-CONF_INSERT_VAR = "insert_var"
 CONF_ZONES_SENSOR = "zones_sensor"
 CONF_INSERT_SENSOR = "insert_sensor"
 
@@ -18,12 +14,8 @@ CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(USBReader),
         cv.Required(CONF_USB_CHANNEL): cv.use_id(usb_uart.USBUartComponent),
-        cv.Optional(CONF_STATUS_VAR): cv.declare_variable_id(int),
-        cv.Optional(CONF_LAST_SEEN): cv.declare_variable_id(int),
-        cv.Optional(CONF_ZONES_VAR): cv.declare_variable_id(int),
-        cv.Optional(CONF_INSERT_VAR): cv.declare_variable_id(int),
-        cv.Optional(CONF_ZONES_SENSOR): cv.declare_variable_id(int),
-        cv.Optional(CONF_INSERT_SENSOR): cv.declare_variable_id(int),
+        cv.Required(CONF_ZONES_SENSOR): cv.use_id(sensor.Sensor),
+        cv.Required(CONF_INSERT_SENSOR): cv.use_id(sensor.Sensor),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -32,18 +24,11 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    chan = await cg.get_variable(config[CONF_USB_CHANNEL])
-    cg.add(var.set_usb_channel(chan))
+    usb_channel = await cg.get_variable(config[CONF_USB_CHANNEL])
+    cg.add(var.set_usb_channel(usb_channel))
 
-    if CONF_STATUS_VAR in config:
-        cg.add(var.set_status_var(config[CONF_STATUS_VAR]))
-    if CONF_LAST_SEEN in config:
-        cg.add(var.set_last_seen(config[CONF_LAST_SEEN]))
-    if CONF_ZONES_VAR in config:
-        cg.add(var.set_zones_var(config[CONF_ZONES_VAR]))
-    if CONF_INSERT_VAR in config:
-        cg.add(var.set_insert_var(config[CONF_INSERT_VAR]))
-    if CONF_ZONES_SENSOR in config:
-        cg.add(var.set_zones_sensor(config[CONF_ZONES_SENSOR]))
-    if CONF_INSERT_SENSOR in config:
-        cg.add(var.set_insert_sensor(config[CONF_INSERT_SENSOR]))
+    zones_sensor_var = await cg.get_variable(config[CONF_ZONES_SENSOR])
+    cg.add(var.set_zones_sensor(zones_sensor_var))
+
+    insert_sensor_var = await cg.get_variable(config[CONF_INSERT_SENSOR])
+    cg.add(var.set_insert_sensor(insert_sensor_var))

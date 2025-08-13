@@ -2,33 +2,26 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/usb_uart/usb_uart.h"
+#include "esphome/components/sensor/sensor.h"
 
 namespace esphome {
 namespace usb_reader {
 
 class USBReader : public Component {
  public:
-  void set_usb_channel(usb_uart::USBUartComponent *chan) { usb_channel_ = chan; }
-  void set_status_var(int status) { status_var_ = status; }
-  void set_last_seen(int last) { last_seen_ = last; }
-  void set_zones_var(int zones) { zones_var_ = zones; }
-  void set_insert_var(int insert) { insert_var_ = insert; }
-  void set_zones_sensor(int sensor) { zones_sensor_ = sensor; }
-  void set_insert_sensor(int sensor) { insert_sensor_ = sensor; }
+  void set_usb_channel(usb_uart::USBUartComponent *channel) { this->usb_channel_ = channel; }
+  void set_zones_sensor(sensor::Sensor *s) { this->zones_sensor_ = s; }
+  void set_insert_sensor(sensor::Sensor *s) { this->insert_sensor_ = s; }
 
   void setup() override;
-  void loop() override {}  // Non serve più, gestiamo tutto in callback
+  void loop() override;
+  float get_setup_priority() const override { return setup_priority::LATE; }
 
  protected:
-  void handle_incoming_byte(uint8_t byte);
-
   usb_uart::USBUartComponent *usb_channel_{nullptr};
-  int status_var_{0};
-  int last_seen_{0};
-  int zones_var_{0};
-  int insert_var_{0};
-  int zones_sensor_{0};
-  int insert_sensor_{0};
+  sensor::Sensor *zones_sensor_{nullptr};
+  sensor::Sensor *insert_sensor_{nullptr};
+  std::string buffer_;
 };
 
 }  // namespace usb_reader
