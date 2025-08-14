@@ -133,6 +133,7 @@ external_components:
       ref: dev
 
 usb_reader:
-  usb_channel: usb_uart_bus
+  id: combivox_reader
+  uart_id: usb_uart_bus
   zones_sensor: stato_zone
   insert_sensor: stato_inserimento
