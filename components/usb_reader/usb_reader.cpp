@@ -8,7 +8,7 @@ static const char *TAG = "usb_reader";
 
 void USBReader::setup() {
   if (this->usb_channel_ != nullptr) {
-    this->usb_channel_->add_debug_callback(this {
+    auto callback = this {
       if (direction == esphome::uart::UARTDirection::UART_DIRECTION_RX) {
         if (c == '\n' || c == '\r') {
           if (!buffer_.empty()) {
@@ -29,8 +29,13 @@ void USBReader::setup() {
           buffer_ += static_cast<char>(c);
         }
       }
-    });
+    };
+    this->usb_channel_->add_debug_callback(std::move(callback));
   }
+}
+
+void USBReader::loop() {
+  // Nothing to do here since we use the debug callback
 }
 
 }  // namespace usb_reader
