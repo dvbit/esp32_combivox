@@ -10,15 +10,15 @@ namespace usb_reader {
 
 class USBReader : public Component {
  public:
-  void set_usb_channel(usb_uart::USBUartComponent *usb_channel) { this->usb_channel_ = usb_channel; }
+  void set_usb_channel(usb_uart::USBUartChannel *usb_channel) { this->usb_channel_ = usb_channel; }
   void set_zones_sensor(sensor::Sensor *sensor) { this->zones_sensor_ = sensor; }
   void set_insert_sensor(sensor::Sensor *sensor) { this->insert_sensor_ = sensor; }
 
-  void loop() override;
-  void setup() override {}
+  void setup() override;
+  void loop() override {}
 
  protected:
-  usb_uart::USBUartComponent *usb_channel_{nullptr};
+  usb_uart::USBUartChannel *usb_channel_{nullptr};
   sensor::Sensor *zones_sensor_{nullptr};
   sensor::Sensor *insert_sensor_{nullptr};
   std::string buffer_;
