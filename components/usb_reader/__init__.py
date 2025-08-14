@@ -2,6 +2,8 @@ import esphome.config_validation as cv
 import esphome.codegen as cg
 from esphome.const import CONF_ID
 
+from esphome.components import sensor  # ✅ aggiunto
+
 DEPENDENCIES = ["usb_uart"]
 
 usb_reader_ns = cg.esphome_ns.namespace("usb_reader")
@@ -14,8 +16,8 @@ CONF_INSERT_SENSOR = "insert_sensor"
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(USBReader),
     cv.Required(CONF_USB_CHANNEL): cv.use_id(cg.Component),
-    cv.Optional(CONF_ZONES_SENSOR): cv.use_id(cg.Sensor),
-    cv.Optional(CONF_INSERT_SENSOR): cv.use_id(cg.Sensor),
+    cv.Optional(CONF_ZONES_SENSOR): cv.use_id(sensor.Sensor),  # ✅ corretto
+    cv.Optional(CONF_INSERT_SENSOR): cv.use_id(sensor.Sensor),  # ✅ corretto
 }).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
