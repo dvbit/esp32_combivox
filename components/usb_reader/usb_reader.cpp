@@ -9,7 +9,8 @@ static const char *TAG = "usb_reader";
 void USBReader::setup() {
   if (this->usb_channel_ != nullptr) {
     this->usb_channel_->add_debug_callback(this {
-      for (auto c : data) {
+      // Solo ricezione
+      if (direction == esphome::uart::UARTDirection::UART_DIRECTION_RX) {
         if (c == '\n' || c == '\r') {
           if (!buffer_.empty()) {
             ESP_LOGD(TAG, "Received line: %s", buffer_.c_str());
