@@ -1,3 +1,9 @@
 #include "usb_reader.h"
 
-// Questo file può rimanere vuoto se non separiamo altre logiche
+namespace esphome {
+namespace usb_reader {
+
+// Nessuna logica extra qui, tutto gestito in usb_reader.cpp
+
+}  // namespace usb_reader
+}  // namespace esphome
