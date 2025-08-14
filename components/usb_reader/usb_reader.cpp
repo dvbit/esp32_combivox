@@ -8,7 +8,7 @@ static const char *TAG = "usb_reader";
 
 void USBReader::setup() {
   if (this->usb_channel_ != nullptr) {
-    this->usb_channel_->add_on_data_callback(this {
+    this->usb_channel_->add_debug_callback(this {
       for (auto c : data) {
         if (c == '\n' || c == '\r') {
           if (!buffer_.empty()) {
