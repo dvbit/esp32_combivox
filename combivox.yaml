@@ -1,18 +1,17 @@
 esphome:
-  name: combivox
-  min_version: 2025.7.1
-  on_boot:
-    priority: 600
-    then:
-      - logger.log: "Sistema avviato: avvio polling centrale via USB OTG"
+  name: s3-devkit
+  friendly_name: s3 devkit
+  min_version: 2025.7.0
 
 esp32:
-  board: lolin_s3
+  board: esp32-s3-devkitc-1
   framework:
     type: esp-idf
 
+# Enable logging
 logger:
-  level: DEBUG
+  level: INFO
+#  hardware_uart: uart0
 
 # Enable Home Assistant API
 api:
@@ -27,113 +26,93 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-usb_host:
-  enable_hubs: false
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "S3-Devkit Fallback Hotspot"
+    password: "Q3t0iAdgFvjQ"
 
-usb_uart:
-  id: usb_uart_bus
-  type: cdc_acm
-  vid: 0 # 0x04D8
-  pid: 0 # 0x000A
-  channels:
-    - id: usb_channel
-      debug: true
-      baud_rate: 9600
-      data_bits: 8
-      parity: NONE
-      stop_bits: 1
+captive_portal:
 
-globals:
-  - id: connection_status
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: usb_last_seen
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: last_zones
-    type: std::string
-    restore_value: no
-    initial_value: ""
-  - id: last_insert
-    type: std::string
-    restore_value: no
-    initial_value: ""
+switch:
+  - platform: restart
+    name: "Combivox esp32 restart"
 
 sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    update_interval: 60s
+
+usb_host:
+  enable_hubs: False
+  devices: 
+    - pid: 0x0000
+      vid: 0x0000
+      id: any
+usb_uart:
+  id: combivox_uart
+  type: CDC_ACM
+  vid: 0 # 0x04D8
+  pid: 0 # 0x000A
+  channels: 
+    - id: usb_channel
+      debug: True
+
+globals:
+  - id: combivox_cmd_index
+    type: int
+    initial_value: '0'
+
+text_sensor:
   - platform: template
+    name: "Stato Zone Combivox"
     id: stato_zone
-    name: "Stato Zone"
 
   - platform: template
+    name: "Stato Inserimento Combivox"
     id: stato_inserimento
-    name: "Stato Inserimento"
 
-# 🔹 Lampeggio LED in base allo stato
 interval:
-  - interval: 125ms
+  - interval: 500ms
     then:
       - lambda: |-
-          static bool led_on = false;
-          led_on = !led_on;
+          auto *channel = id(usb_channel);
+          static std::string rx_buffer;
+          uint8_t c;
 
-          // Timeout USB → torna a Wi-Fi dopo 2000ms di inattività
-          if (millis() - id(usb_last_seen) > 2000) {
-            id(connection_status) = 0;
+          // Alternanza dei comandi
+          if (id(combivox_cmd_index) == 0) {
+            channel->write_str(":010000500602A7\r\n");
+            ESP_LOGI("combivox", "TX stato_zone");
+            id(combivox_cmd_index) = 1;
+          } else {
+            channel->write_str(":010000500601A8\r\n");
+            ESP_LOGI("combivox", "TX stato_inserimento");
+            id(combivox_cmd_index) = 0;
           }
 
-          if (!led_on) {
-            id(rgb_led).turn_off();
-            return;
+          delay(100);
+
+          // Ricezione risposta
+          while (channel->read_byte(&c)) {
+            if (c == '\n' || c == '\r') {
+              if (!rx_buffer.empty()) {
+                ESP_LOGD("combivox", "USB RX: %s", rx_buffer.c_str());
+
+                // ⚠️ Qui dobbiamo capire a quale sensore pubblicare
+                // Guardiamo l’ultimo comando trasmesso
+                if (id(combivox_cmd_index) == 1) {
+                  // L'ultimo giro ho mandato lo "zone"
+                  id(stato_zone).publish_state(rx_buffer);
+                  ESP_LOGI("combivox", "Publish stato_zone: %s", rx_buffer.c_str());
+                } else {
+                  // L'ultimo giro ho mandato "inserimento"
+                  id(stato_inserimento).publish_state(rx_buffer);
+                  ESP_LOGI("combivox", "Publish stato_inserimento: %s", rx_buffer.c_str());
+                }
+
+                rx_buffer.clear();
+              }
+            } else {
+              rx_buffer += static_cast<char>(c);
+            }
           }
-
-          int st = id(connection_status);
-          if (st == 0) { 
-            id(rgb_led).turn_on();
-            id(rgb_led).set_rgb(0.0, 0.0, 1.0); // Blu = solo Wi-Fi
-          } else if (st == 1) { 
-            id(rgb_led).turn_on();
-            id(rgb_led).set_rgb(1.0, 1.0, 0.0); // Giallo = USB collegato
-          } else if (st == 2) { 
-            id(rgb_led).turn_on();
-            id(rgb_led).set_rgb(0.0, 1.0, 0.0); // Verde = dati USB ricevuti
-            id(connection_status) = 1; // torna idle dopo un ciclo
-          }
-# 🔹 Polling stato zone ogni 1s
-  - interval: 1s
-    then:
-      - lambda: |-
-          const char cmd1[] = ":010000500601A8\r\n";
-          id(usb_channel).write_str(cmd1);
-          ESP_LOGI("polling", "Inviato comando stato zone: %s", cmd1);
-# 🔹 Polling stato inserimento sfalsato di 500ms
-  - interval: 1s
-    then:
-      - delay: 500ms
-      - lambda: |-
-          const char cmd2[] = ":010000500602A7\r\n";
-          id(usb_channel).write_str(cmd2);
-          ESP_LOGI("polling", "Inviato comando stato inserimento: %s", cmd2);
-
-light:
-  - platform: esp32_rmt_led_strip
-    id: rgb_led
-    chipset: WS2812
-    pin: GPIO38
-    num_leds: 1
-    rgb_order: GRB
-    name: "LED RGB LOLIN S3"
-
-external_components:
- # - source: github://marcob79/esp32_combivox@dev
-  - source:
-      type: git
-      url: https://github.com/marcob79/esp32_combivox
-      ref: dev
-
-usb_reader:
-  id: combivox_reader
-  uart_id: usb_uart_bus
-  zones_sensor: stato_zone
-  insert_sensor: stato_inserimento
