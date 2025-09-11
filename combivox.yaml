@@ -8,6 +8,12 @@ esp32:
   framework:
     type: esp-idf
 
+external_components:
+  - source:
+      type: git
+      url: https://github.com/ssieb/esphome_components
+    components: [ serial ]
+
 # Enable logging
 logger:
   level: INFO
@@ -51,8 +57,8 @@ usb_host:
 usb_uart:
   id: combivox_uart
   type: CDC_ACM
-  vid: 0 # 0x04D8
-  pid: 0 # 0x000A
+  vid: 0x04D8
+  pid: 0x000A
   channels: 
     - id: usb_channel
       debug: True
@@ -62,57 +68,201 @@ globals:
     type: int
     initial_value: '0'
 
-text_sensor:
-  - platform: template
-    name: "Stato Zone Combivox"
-    id: stato_zone
-
-  - platform: template
-    name: "Stato Inserimento Combivox"
-    id: stato_inserimento
-
 interval:
   - interval: 500ms
     then:
       - lambda: |-
           auto *channel = id(usb_channel);
-          static std::string rx_buffer;
-          uint8_t c;
 
-          // Alternanza dei comandi
           if (id(combivox_cmd_index) == 0) {
             channel->write_str(":010000500602A7\r\n");
             ESP_LOGI("combivox", "TX stato_zone");
-            id(combivox_cmd_index) = 1;
+            id(combivox_cmd_index) = 1; 
           } else {
             channel->write_str(":010000500601A8\r\n");
             ESP_LOGI("combivox", "TX stato_inserimento");
             id(combivox_cmd_index) = 0;
           }
 
-          delay(100);
+# Text sensor per leggere i dati dalla porta seriale
+text_sensor:
+  - platform: serial
+    uart_id: usb_channel
+    # name: My Serial data
+    id: raw_data_received
+    on_value:
+      then:
+        - lambda: |-
+            std::string received_data = x;
+            ESP_LOGD("combivox", "RX: %s", received_data.c_str());
 
-          // Ricezione risposta
-          while (channel->read_byte(&c)) {
-            if (c == '\n' || c == '\r') {
-              if (!rx_buffer.empty()) {
-                ESP_LOGD("combivox", "USB RX: %s", rx_buffer.c_str());
+            // Gestione della risposta in base al comando inviato
+            if (id(combivox_cmd_index) == 0) {
+              // Pubblicazione grezza per "stato_zone"
+              ESP_LOGI("combivox", "Risposta stato_zone: %s", received_data.c_str());
+              id(stato_zone).publish_state(received_data);
 
-                // ⚠️ Qui dobbiamo capire a quale sensore pubblicare
-                // Guardiamo l’ultimo comando trasmesso
-                if (id(combivox_cmd_index) == 1) {
-                  // L'ultimo giro ho mandato lo "zone"
-                  id(stato_zone).publish_state(rx_buffer);
-                  ESP_LOGI("combivox", "Publish stato_zone: %s", rx_buffer.c_str());
-                } else {
-                  // L'ultimo giro ho mandato "inserimento"
-                  id(stato_inserimento).publish_state(rx_buffer);
-                  ESP_LOGI("combivox", "Publish stato_inserimento: %s", rx_buffer.c_str());
-                }
+              // Parsing per "stato_zone" (bitmask 8 bit)
+              if (received_data.length() >= 2) {
+                std::string hex_byte = received_data.substr(0, 2); // Estrae i primi 2 caratteri (8 bit)
+                uint8_t byte_value = strtoul(hex_byte.c_str(), nullptr, 16);
 
-                rx_buffer.clear();
+                // Decodifica la bitmask e aggiorna i binary_sensor
+                id(zona1).publish_state(byte_value & (1 << 0));  // Zona 1 (bit 0)
+                id(zona2).publish_state(byte_value & (1 << 1));  // Zona 2 (bit 1)
+                id(zona3).publish_state(byte_value & (1 << 2));  // Zona 3 (bit 2)
+                id(zona4).publish_state(byte_value & (1 << 3));  // Zona 4 (bit 3)
+                id(zona5).publish_state(byte_value & (1 << 4));  // Zona 5 (bit 4)
+                id(zona6).publish_state(byte_value & (1 << 5));  // Zona 6 (bit 5)
+                id(zona7).publish_state(byte_value & (1 << 6));  // Zona 7 (bit 6)
+                id(zona8).publish_state(byte_value & (1 << 7));  // Zona 8 (bit 7)
+              }
+
+              // Parsing per "allarme_zone" (secondo byte, posizione 50-51)
+              if (received_data.length() >= 52) {  // Verifica che la stringa sia abbastanza lunga
+                std::string hex_byte_allarme = received_data.substr(50, 2); // Byte 50-51 (8 bit)
+                uint8_t byte_allarme = strtoul(hex_byte_allarme.c_str(), nullptr, 16);
+                // Aggiorna i binary_sensor per gli allarmi delle zone
+                id(allarme_zona1).publish_state(byte_allarme & (1 << 0));  // Allarme Zona 1 (bit 0)
+                id(allarme_zona2).publish_state(byte_allarme & (1 << 1));  // Allarme Zona 2 (bit 1)
+                id(allarme_zona3).publish_state(byte_allarme & (1 << 2));  // Allarme Zona 3 (bit 2)
+                id(allarme_zona4).publish_state(byte_allarme & (1 << 3));  // Allarme Zona 4 (bit 3)
+                id(allarme_zona5).publish_state(byte_allarme & (1 << 4));  // Allarme Zona 5 (bit 4)
+                id(allarme_zona6).publish_state(byte_allarme & (1 << 5));  // Allarme Zona 6 (bit 5)
+                id(allarme_zona7).publish_state(byte_allarme & (1 << 6));  // Allarme Zona 7 (bit 6)
+                id(allarme_zona8).publish_state(byte_allarme & (1 << 7));  // Allarme Zona 8 (bit 7)
               }
             } else {
-              rx_buffer += static_cast<char>(c);
+              // Pubblicazione grezza per "stato_inserimento"
+              ESP_LOGI("combivox", "Risposta stato_inserimento: %s", received_data.c_str());
+              id(stato_inserimento).publish_state(received_data);
+
+              // Analisi del primo byte per determinare lo stato di inserimento
+              if (received_data.length() >= 2) {
+                std::string hex_byte = received_data.substr(0, 2);
+                uint8_t byte_value = strtoul(hex_byte.c_str(), nullptr, 16);
+
+                // Determina lo stato di inserimento
+                if ((byte_value & 0x7F) == 0x7F) {  // 01111111 (tutti i bit tranne il primo sono 1)
+                  id(stato_inserimento_testuale).publish_state("Inserimento totale");
+                } else if (byte_value == 0x00) {  // 00000000 (tutti i bit sono 0)
+                  id(stato_inserimento_testuale).publish_state("Disinserito");
+                } else {  // Alcuni bit sono 1, altri 0
+                  id(stato_inserimento_testuale).publish_state("Inserimento parziale");
+                }
+              }
+
             }
-          }
+
+  - platform: template
+    id: stato_zone
+    name: "Stato Zone Combivox"
+    lambda: |-
+      return {};
+    update_interval: never
+
+  - platform: template
+    id: stato_inserimento
+    name: "Stato Inserimento Combivox"
+    lambda: |-
+      return {};
+    update_interval: never
+
+  - platform: template
+    id: stato_inserimento_testuale
+    name: "Stato Inserimento"
+    lambda: |-
+      return {};
+    update_interval: never
+
+# Binary sensors per le 8 zone
+binary_sensor:
+  - platform: template
+    id: zona1
+    name: "Zona 1"
+    device_class: door
+    #icon: "mdi:door"
+  - platform: template
+    id: zona2
+    name: "Zona 2"
+    device_class: motion
+    #icon: "mdi:motion-sensor"
+  - platform: template
+    id: zona3
+    name: "Zona 3"
+    device_class: motion
+    #icon: "mdi:motion-sensor"
+  - platform: template
+    id: zona4
+    name: "Zona 4"
+    device_class: motion
+    #icon: "mdi:motion-sensor"
+  - platform: template
+    id: zona5
+    name: "Zona 5"
+    device_class: motion
+    #icon: "mdi:motion-sensor"
+  - platform: template
+    id: zona6
+    name: "Zona 6"
+    device_class: motion
+    #icon: "mdi:motion-sensor"
+  - platform: template
+    id: zona7
+    name: "Zona 7"
+    device_class: tamper
+    #icon: "mdi:shield-alert"
+  - platform: template
+    id: zona8
+    name: "Zona 8"
+    device_class: window
+    #icon: "mdi:curtains"
+
+  # Binary sensor per gli allarmi delle zone
+  - platform: template
+    id: allarme_zona1
+    name: "Allarme Zona 1"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona2
+    name: "Allarme Zona 2"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona3
+    name: "Allarme Zona 3"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona4
+    name: "Allarme Zona 4"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona5
+    name: "Allarme Zona 5"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona6
+    name: "Allarme Zona 6"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona7
+    name: "Allarme Zona 7"
+    device_class: problem
+    #icon: "mdi:shield-alert"
+
+  - platform: template
+    id: allarme_zona8
+    name: "Allarme Zona 8"
+    device_class: problem
+    #icon: "mdi:shield-alert"
