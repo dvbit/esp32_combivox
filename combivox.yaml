@@ -1,23 +1,29 @@
 esphome:
-  name: s3-devkit
-  friendly_name: s3 devkit
+  name: combivox_esp32
+  friendly_name: combivox
   min_version: 2025.7.0
+  on_boot:
+    priority: 600
+    then:
+      - delay: 2min
+      - switch.turn_on: polling_switch  # Attiva automaticamente il polling dopo 2 minuti
+      - logger.log: "Polling attivato automaticamente dopo 2 minuti dal boot."
 
 esp32:
   board: esp32-s3-devkitc-1
   framework:
     type: esp-idf
 
+# Enable logging
+logger:
+  level: INFO
+  #hardware_uart: uart0
+
 external_components:
   - source:
       type: git
       url: https://github.com/ssieb/esphome_components
     components: [ serial ]
-
-# Enable logging
-logger:
-  level: INFO
-#  hardware_uart: uart0
 
 # Enable Home Assistant API
 api:
@@ -42,6 +48,17 @@ captive_portal:
 switch:
   - platform: restart
     name: "Combivox esp32 restart"
+  - platform: template
+    name: "Polling Combivox"
+    id: polling_switch
+    optimistic: true
+    assumed_state: false
+    lambda: |-
+      return id(polling_active);
+    turn_on_action:
+      - lambda: 'id(polling_active) = true;'
+    turn_off_action:
+      - lambda: 'id(polling_active) = false;'
 
 sensor:
   - platform: wifi_signal
@@ -67,22 +84,29 @@ globals:
   - id: combivox_cmd_index
     type: int
     initial_value: '0'
+  - id: polling_active
+    type: bool
+    initial_value: 'false'
+    restore_value: yes  # Ripristina lo stato dopo un riavvio
 
 interval:
   - interval: 500ms
     then:
-      - lambda: |-
-          auto *channel = id(usb_channel);
-
-          if (id(combivox_cmd_index) == 0) {
-            channel->write_str(":010000500602A7\r\n");
-            ESP_LOGI("combivox", "TX stato_zone");
-            id(combivox_cmd_index) = 1; 
-          } else {
-            channel->write_str(":010000500601A8\r\n");
-            ESP_LOGI("combivox", "TX stato_inserimento");
-            id(combivox_cmd_index) = 0;
-          }
+      - if:
+          condition:
+            lambda: 'return id(polling_active);'
+          then:
+            - lambda: |-
+                auto *channel = id(usb_channel);
+                if (id(combivox_cmd_index) == 0) {
+                  channel->write_str(":010000500602A7\r\n");
+                  ESP_LOGI("combivox", "TX stato_zone");
+                  id(combivox_cmd_index) = 1;
+                } else {
+                  channel->write_str(":010000500601A8\r\n");
+                  ESP_LOGI("combivox", "TX stato_inserimento");
+                  id(combivox_cmd_index) = 0;
+                }
 
 # Text sensor per leggere i dati dalla porta seriale
 text_sensor:
@@ -156,14 +180,14 @@ text_sensor:
 
   - platform: template
     id: stato_zone
-    name: "Stato Zone Combivox"
+    # name: "Stato Zone Combivox" # togliere il commento per pubblicare la stringa grezza completa su Home Assistant
     lambda: |-
       return {};
     update_interval: never
 
   - platform: template
     id: stato_inserimento
-    name: "Stato Inserimento Combivox"
+    # name: "Stato Inserimento Combivox" # togliere il commento per pubblicare la stringa grezza completa su Home Assistant
     lambda: |-
       return {};
     update_interval: never
