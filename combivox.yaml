@@ -45,6 +45,12 @@ wifi:
 
 captive_portal:
 
+web_server:
+  version: 3
+  auth:
+    username: !secret web_username 
+    password: !secret web_password
+    
 switch:
   - platform: restart
     name: "Combivox esp32 restart"
